@@ -1,0 +1,30 @@
+{
+  "_comment_": "Merge the hooks block below into ~/.claude/settings.json. If you already have a top-level hooks block, add the SessionStart and Stop arrays inside it (or merge with any existing ones). Replace YOUR_USERNAME with the result of `echo $USER`. ~ is not expanded by Claude Code's hook runner — absolute paths are required.",
+
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/YOUR_USERNAME/.claude/scripts/cmux-rename-on-session.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/YOUR_USERNAME/.claude/scripts/cmux-rename-on-session.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
