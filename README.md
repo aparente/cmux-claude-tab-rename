@@ -1,6 +1,9 @@
 # cmux-claude-tab-rename
 
-Auto-rename [cmux](https://github.com/manaflow-ai/cmux) tabs to match your [Claude Code](https://claude.com/claude-code) session name. Tab updates on start, resume, picker selection, and mid-session `/rename`. Restores to the prior title when the session exits.
+Two things, both about making multi-session [Claude Code](https://claude.com/claude-code) inside [cmux](https://github.com/manaflow-ai/cmux) survivable:
+
+1. **Auto-rename cmux tabs to your Claude session name.** Updates on start, resume, picker selection, and `/rename` mid-session. Restores to the prior title on exit.
+2. **Rewrite cmux's notification panel to show the tab name, not just the workspace.** When you have 8 Claude sessions in one workspace, you can tell *which one* is waiting for input.
 
 If you run 5+ Claude sessions across cmux tabs and lose track of which is which, this fixes that.
 
@@ -8,7 +11,7 @@ If you run 5+ Claude sessions across cmux tabs and lose track of which is which,
 
 ---
 
-## What does what
+## Tab renaming
 
 | You run | Tab becomes | At session exit |
 |---|---|---|
@@ -21,6 +24,20 @@ If you run 5+ Claude sessions across cmux tabs and lose track of which is which,
 | `claude attach 12345678` (and other subcommands) | unchanged | unchanged |
 
 Outside cmux (plain Terminal, IDE without cmux), all the rename code paths no-op silently.
+
+## Notification rewrite
+
+cmux's notification panel renders every Claude "needs input" event with the same title (`Claude Code`) and the *workspace* name as the footer. If you have 8 Claude sessions in one workspace, that's 8 identical-looking notifications.
+
+This kit installs a cmux notification hook that rewrites `notification.title` to the firing tab's name, so the panel becomes useful again:
+
+| Before | After |
+|---|---|
+| **Claude Code** <br/> Claude is waiting for your input <br/> Biobrain | **Mom Kim Tasks** <br/> Claude is waiting for your input <br/> Biobrain |
+
+The cmux side of this works via `~/.config/cmux/cmux.json` → `notifications.hooks`. cmux pipes each notification's policy JSON through your script and renders whatever you return — including content changes (`title`, `subtitle`, `body`), not just effects toggles.
+
+The hook can't ask cmux for the tab title at notification time (that deadlocks the cmux socket cmux is currently using to deliver the notification), so the tab-rename script doubles as a cache writer — every time it renames a tab, it updates `/tmp/cmux-tab-titles.json` with the new `surfaceId → title` entry. The notification hook reads that cache.
 
 ---
 
@@ -37,7 +54,7 @@ Outside cmux (plain Terminal, IDE without cmux), all the rename code paths no-op
 
 Open a Claude Code session and paste:
 
-> Please install the cmux Claude-session tab-rename workflow from this repo: https://github.com/aparente/cmux-claude-tab-rename. Read the README, then install the three files (shell helpers, hook script, settings entry). Use absolute paths derived from my home directory (no ~). Be idempotent — if `claude()` is already a shell function in my `~/.zshrc`, replace just that block; don't duplicate. Verify the install by sourcing `~/.zshrc` and confirming the four functions (`claude`, `_claude_rename_cmux_tab`, `_claude_current_tab_title`, `_claude_rename_from_args`) are defined.
+> Please install the cmux Claude-session tab-rename + notification kit from this repo: https://github.com/aparente/cmux-claude-tab-rename. Read the README, then install all five files: the zsh wrapper (appended to ~/.zshrc), the two Claude Code hook scripts (~/.claude/scripts/), the Claude Code settings entries (~/.claude/settings.json), and the cmux notification hook block (~/.config/cmux/cmux.json). Use absolute paths derived from my home directory (no ~). Be idempotent — if `claude()` is already a shell function in my ~/.zshrc, replace just that block. After install, run `cmux reload-config`, source ~/.zshrc, and confirm the four shell functions are defined.
 
 Claude will fetch raw files from the repo, install them, register the hook, and verify.
 
@@ -53,20 +70,33 @@ curl -fsSL https://raw.githubusercontent.com/aparente/cmux-claude-tab-rename/mai
 
 If you already had a `claude()` function defined elsewhere in `~/.zshrc`, **replace** it — zsh keeps whichever was defined last. The function in this file does naming AND tab rename; it's a superset.
 
-### 2. SessionStart/Stop hook script
+### 2. Claude Code hook scripts
 
 ```bash
 mkdir -p ~/.claude/scripts
 curl -fsSL https://raw.githubusercontent.com/aparente/cmux-claude-tab-rename/main/cmux-rename-on-session.sh \
   -o ~/.claude/scripts/cmux-rename-on-session.sh
-chmod +x ~/.claude/scripts/cmux-rename-on-session.sh
+curl -fsSL https://raw.githubusercontent.com/aparente/cmux-claude-tab-rename/main/cmux-notification-add-tab-name.sh \
+  -o ~/.claude/scripts/cmux-notification-add-tab-name.sh
+chmod +x ~/.claude/scripts/cmux-rename-on-session.sh \
+         ~/.claude/scripts/cmux-notification-add-tab-name.sh
 ```
 
-### 3. Register the hooks in `~/.claude/settings.json`
+### 3. Register the Claude Code hooks in `~/.claude/settings.json`
 
 Merge the `hooks.SessionStart` and `hooks.Stop` entries from [`settings-snippet.json`](./settings-snippet.json) into your `~/.claude/settings.json`. Substitute your `$USER` for `YOUR_USERNAME` — `~` is not expanded in hook commands.
 
-### 4. Activate
+### 4. Register the cmux notification hook in `~/.config/cmux/cmux.json`
+
+Merge the `notifications.hooks` block from [`cmux-config-snippet.jsonc`](./cmux-config-snippet.jsonc) into your `~/.config/cmux/cmux.json` (a JSONC file with comments — preserve the existing `$schema` and `schemaVersion` keys). Substitute your username. Then:
+
+```bash
+cmux reload-config
+```
+
+Skip this step if you don't want the notification rewrite. The tab rename works on its own.
+
+### 5. Activate
 
 ```bash
 source ~/.zshrc
@@ -126,15 +156,17 @@ rm ~/.claude/scripts/cmux-rename-on-session.sh
 | File | Goes to | Purpose |
 |---|---|---|
 | [`cmux-claude-tab-rename.zsh`](./cmux-claude-tab-rename.zsh) | append to `~/.zshrc` | Shell wrapper: auto-name prompt + pre-launch rename + on-exit restore |
-| [`cmux-rename-on-session.sh`](./cmux-rename-on-session.sh) | `~/.claude/scripts/` | SessionStart + Stop hook script |
-| [`settings-snippet.json`](./settings-snippet.json) | merge into `~/.claude/settings.json` | Hook registration |
+| [`cmux-rename-on-session.sh`](./cmux-rename-on-session.sh) | `~/.claude/scripts/` | SessionStart + Stop hook: renames tab to match session title; also writes the surface→title cache |
+| [`cmux-notification-add-tab-name.sh`](./cmux-notification-add-tab-name.sh) | `~/.claude/scripts/` | cmux notification hook: reads the cache and rewrites notification.title to the firing tab's name |
+| [`settings-snippet.json`](./settings-snippet.json) | merge into `~/.claude/settings.json` | Claude Code hook registration |
+| [`cmux-config-snippet.jsonc`](./cmux-config-snippet.jsonc) | merge into `~/.config/cmux/cmux.json` | cmux notification hook registration |
 
 ## Status
 
-- [x] Tab rename on session start/resume/`-n`/`--resume UUID` — working
-- [x] Tab rename on `/rename` mid-session — working
-- [x] Restore to prior title on session exit — working
-- [ ] Rewrite cmux's "needs input" notifications to show tab name instead of workspace name — see [Issue #1](https://github.com/aparente/cmux-claude-tab-rename/issues/1)
+- [x] Tab rename on session start/resume/`-n`/`--resume UUID`
+- [x] Tab rename on `/rename` mid-session
+- [x] Restore to prior title on session exit
+- [x] Rewrite cmux's "needs input" notifications to show tab name instead of workspace name
 
 ## License
 

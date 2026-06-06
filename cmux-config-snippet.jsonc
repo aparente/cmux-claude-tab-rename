@@ -1,0 +1,25 @@
+{
+  // ----- cmux notification hook snippet -----
+  //
+  // Merge this notifications block into your ~/.config/cmux/cmux.json
+  // (alongside the $schema and schemaVersion keys at top level — that file
+  // is JSONC, so comments are allowed). Replace YOUR_USERNAME with your
+  // macOS username; cmux does not expand ~ in hook command paths.
+  //
+  // After merging:
+  //     cmux reload-config
+  //
+  // The hook reads /tmp/cmux-tab-titles.json (populated by the rename
+  // hook script) and rewrites notification.title to the tab name so a
+  // workspace's notifications can be told apart at a glance.
+
+  "notifications": {
+    "hooks": [
+      {
+        "id": "tab-name",
+        "command": "/Users/YOUR_USERNAME/.claude/scripts/cmux-notification-add-tab-name.sh",
+        "timeoutSeconds": 10
+      }
+    ]
+  }
+}
