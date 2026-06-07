@@ -54,17 +54,21 @@ cmux rename-tab --surface "$CMUX_SURFACE_ID" "$TITLE" >/dev/null 2>&1
 # Update the surface→title cache so the cmux notification hook
 # (cmux-notification-add-tab-name.sh) can look up tab titles without calling
 # back into cmux (which would deadlock when invoked from inside cmux's own
-# notification pipeline).
+# notification pipeline). Cache lives under ~/Library/Caches (per-user,
+# mode-protected) rather than /tmp (world-listable, vulnerable to a TOCTOU
+# pre-create on shared Macs).
 python3 - "$CMUX_SURFACE_ID" "$TITLE" <<'PY' >/dev/null 2>&1
 import json, os, sys, tempfile
-cache = '/tmp/cmux-tab-titles.json'
+cache_dir = os.path.expanduser('~/Library/Caches/cmux-tab-rename')
+os.makedirs(cache_dir, mode=0o700, exist_ok=True)
+cache = os.path.join(cache_dir, 'tab-titles.json')
 sid, title = sys.argv[1], sys.argv[2]
 try:
     data = json.load(open(cache))
 except Exception:
     data = {}
 data[sid] = title
-fd, tmp = tempfile.mkstemp(dir='/tmp', prefix='cmux-titles.', suffix='.json')
+fd, tmp = tempfile.mkstemp(dir=cache_dir, prefix='tab-titles.', suffix='.json')
 os.write(fd, json.dumps(data).encode())
 os.close(fd)
 os.rename(tmp, cache)

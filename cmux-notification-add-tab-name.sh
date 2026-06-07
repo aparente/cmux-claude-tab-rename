@@ -14,16 +14,18 @@ holding its socket while it processes the notification, so a CLI call back
 into the same socket deadlocks until the hook times out (cmux falls back to
 the original notification, losing our rewrite).
 
-Instead we read /tmp/cmux-tab-titles.json, a surfaceId→title map that the
-companion cmux-rename-on-session.sh writes every time it renames a tab.
-That keeps the cache fresh for any Claude session managed through this kit,
-without needing to query cmux at notification time.
+Instead we read ~/Library/Caches/cmux-tab-rename/tab-titles.json, a
+surfaceId→title map that the companion cmux-rename-on-session.sh writes
+every time it renames a tab. That keeps the cache fresh for any Claude
+session managed through this kit, without needing to query cmux at
+notification time.
 
 If a surface isn't in the cache (e.g., tab renamed via cmux UI directly,
 or a process that doesn't use our rename hook), pass through with the
 original notification.
 """
 import json
+import os
 import sys
 
 
@@ -33,7 +35,7 @@ def fail_through(policy):
     sys.exit(0)
 
 
-CACHE = "/tmp/cmux-tab-titles.json"
+CACHE = os.path.expanduser("~/Library/Caches/cmux-tab-rename/tab-titles.json")
 
 try:
     policy = json.load(sys.stdin)

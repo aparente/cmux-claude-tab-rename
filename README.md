@@ -37,7 +37,7 @@ This kit installs a cmux notification hook that rewrites `notification.title` to
 
 The cmux side of this works via `~/.config/cmux/cmux.json` → `notifications.hooks`. cmux pipes each notification's policy JSON through your script and renders whatever you return — including content changes (`title`, `subtitle`, `body`), not just effects toggles.
 
-The hook can't ask cmux for the tab title at notification time (that deadlocks the cmux socket cmux is currently using to deliver the notification), so the tab-rename script doubles as a cache writer — every time it renames a tab, it updates `/tmp/cmux-tab-titles.json` with the new `surfaceId → title` entry. The notification hook reads that cache.
+The hook can't ask cmux for the tab title at notification time (that deadlocks the cmux socket cmux is currently using to deliver the notification), so the tab-rename script doubles as a cache writer — every time it renames a tab, it updates `~/Library/Caches/cmux-tab-rename/tab-titles.json` with the new `surfaceId → title` entry. The notification hook reads that cache. (Per-user `~/Library/Caches/` rather than `/tmp/` so the cache is mode-protected and free from TOCTOU pre-create issues on shared machines.)
 
 ---
 
@@ -147,8 +147,12 @@ The hook runs **synchronously**. Backgrounding it (with `&`) lets Claude Code's 
 
 ```bash
 rm ~/.claude/scripts/cmux-rename-on-session.sh
+rm ~/.claude/scripts/cmux-notification-add-tab-name.sh
+rm -rf ~/Library/Caches/cmux-tab-rename
 # Edit ~/.zshrc: delete the helper functions and the claude() function block
 # Edit ~/.claude/settings.json: remove the SessionStart and Stop entries
+# Edit ~/.config/cmux/cmux.json: remove the notifications.hooks entry, then:
+cmux reload-config
 ```
 
 ## Files
