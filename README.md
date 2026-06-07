@@ -54,7 +54,7 @@ The hook can't ask cmux for the tab title at notification time (that deadlocks t
 
 Open a Claude Code session and paste:
 
-> Please install the cmux Claude-session tab-rename + notification kit from this repo: https://github.com/aparente/cmux-claude-tab-rename. Read the README, then install all five files: the zsh wrapper (appended to ~/.zshrc), the two Claude Code hook scripts (~/.claude/scripts/), the Claude Code settings entries (~/.claude/settings.json), and the cmux notification hook block (~/.config/cmux/cmux.json). Use absolute paths derived from my home directory (no ~). Be idempotent — if `claude()` is already a shell function in my ~/.zshrc, replace just that block. After install, run `cmux reload-config`, source ~/.zshrc, and confirm the four shell functions are defined.
+> Please install the cmux Claude-session tab-rename + notification kit from this repo: https://github.com/aparente/cmux-claude-tab-rename. Read the README, then install all five files: the zsh wrapper (appended to `~/.zshrc`), the two Claude Code hook scripts (`~/.claude/scripts/`), the Claude Code settings entries (`~/.claude/settings.json`), and the cmux notification hook block (`~/.config/cmux/cmux.json`). Use absolute paths derived from my home directory (no `~`). Be idempotent — if `claude()` is already a shell function in my `~/.zshrc`, replace just that block. After install, run `cmux reload-config`, source `~/.zshrc`, and confirm the four shell functions are defined.
 
 Claude will fetch raw files from the repo, install them, register the hook, and verify.
 
